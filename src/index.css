@@ -1,0 +1,14 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #e8e4da;
+  background-image: radial-gradient(#d8d3c5 1px, transparent 1px);
+  background-size: 24px 24px;
+  font-family: "Libre Franklin", -apple-system, sans-serif;
+  color: #2b2a26;
+  min-height: 100vh;
+}
