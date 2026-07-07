@@ -9,11 +9,9 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-// NOTE: This component was rebuilt from the design spec ("posted inspection
-// certificate": stamped letter grade, check rows, fix list, upgrade card)
-// because the original ai-visibility-scanner.jsx prototype was not present in
-// the repo. If you have the original file, you can paste it over this one —
-// just keep the fetch pointed at /.netlify/functions/scan.
+// "Posted inspection certificate" UI, red ink edition. One input: the app
+// resolves category/location from the business's real online footprint
+// (Google Business Profile etc.) server-side.
 
 const SCAN_ENDPOINT = "/.netlify/functions/scan";
 const CHECKOUT_ENDPOINT = "/.netlify/functions/create-checkout-session";
@@ -32,27 +30,25 @@ const GRADE_COLORS = {
   B: "#4a8a2a",
   C: "#b07d10",
   D: "#c0521a",
-  F: "#b3231f",
+  F: "#c1121f",
 };
 
 const STATUS_ICONS = {
   pass: { Icon: CheckCircle2, color: "#1a7a3c" },
   warn: { Icon: AlertTriangle, color: "#b07d10" },
-  fail: { Icon: XCircle, color: "#b3231f" },
+  fail: { Icon: XCircle, color: "#c1121f" },
 };
 
 const SCANNING_STEPS = [
-  "Searching for your Google Business Profile…",
+  "Looking up your Google Business Profile…",
+  "Working out what you do and where you are…",
   "Reading your reviews…",
   "Checking local directories and 'best of' lists…",
-  "Looking for your website and social presence…",
   "Asking: would an AI recommend this business?",
 ];
 
 export default function App() {
-  const [businessName, setBusinessName] = useState("");
-  const [category, setCategory] = useState("");
-  const [city, setCity] = useState("");
+  const [query, setQuery] = useState("");
   const [phase, setPhase] = useState("form"); // form | scanning | result | limit
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
@@ -71,6 +67,7 @@ export default function App() {
 
   async function runScan(e) {
     e.preventDefault();
+    if (!query.trim()) return;
     setError(null);
     setPhase("scanning");
     try {
@@ -78,9 +75,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          businessName: businessName.trim(),
-          category: category.trim(),
-          city: city.trim(),
+          query: query.trim(),
           sessionId: getSessionId(),
         }),
       });
@@ -121,11 +116,13 @@ export default function App() {
     }
   }
 
+  const biz = report?.business;
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
         <div style={styles.logoRow}>
-          <Search size={22} strokeWidth={2.5} />
+          <Search size={22} strokeWidth={2.5} color="#c1121f" />
           <span style={styles.logoText}>Storefront Check</span>
         </div>
         <p style={styles.tagline}>Would AI recommend your business?</p>
@@ -135,48 +132,33 @@ export default function App() {
         <div style={styles.certificate}>
           <div style={styles.certInner}>
             <p style={styles.certLabel}>OFFICIAL AI-VISIBILITY INSPECTION</p>
-            <h1 style={styles.certTitle}>Request an Inspection</h1>
-            <p style={styles.certSub}>
-              When customers ask ChatGPT or Claude for "the best {category || "…"}{" "}
-              near me," does your business come up? Enter your details and we'll
-              research your real online footprint.
+            <h1 style={{ ...styles.certTitle, textAlign: "center" }}>
+              Who are we inspecting?
+            </h1>
+            <p style={{ ...styles.certSub, textAlign: "center" }}>
+              Type your business name — we'll find your Google Business
+              Profile and work out the rest ourselves. Add your city only if
+              your name is a common one.
             </p>
             <form onSubmit={runScan} style={styles.form}>
-              <label style={styles.label}>
-                Business name
-                <input
-                  style={styles.input}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Rosie's Bakery"
-                  required
-                />
-              </label>
-              <label style={styles.label}>
-                Category
-                <input
-                  style={styles.input}
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g. bakery"
-                  required
-                />
-              </label>
-              <label style={styles.label}>
-                City
-                <input
-                  style={styles.input}
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="e.g. Portland, OR"
-                  required
-                />
-              </label>
+              <input
+                style={styles.bigInput}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={'e.g. "Rosie\'s Bakery" or "Rosie\'s Bakery, Portland"'}
+                aria-label="Business name"
+                required
+              />
               {error && <p style={styles.error}>{error}</p>}
-              <button type="submit" style={styles.primaryBtn}>
-                Run my free inspection
+              <button type="submit" style={styles.bigRedButton}>
+                <span style={styles.bigRedButtonInner}>
+                  <Search size={26} strokeWidth={3} />
+                  <span>INSPECT</span>
+                </span>
               </button>
               <p style={styles.finePrint}>
+                Press the big red button to commence inspection.
+                <br />
                 Free plan includes one scan. No account needed.
               </p>
             </form>
@@ -189,7 +171,7 @@ export default function App() {
           <div style={{ ...styles.certInner, textAlign: "center" }}>
             <RefreshCw size={36} style={styles.spinner} />
             <h2 style={{ ...styles.certTitle, marginTop: 16 }}>
-              Inspecting {businessName}…
+              Inspecting {query}…
             </h2>
             <p style={styles.scanStep}>{SCANNING_STEPS[stepIdx]}</p>
             <p style={styles.finePrint}>
@@ -206,9 +188,11 @@ export default function App() {
               <p style={styles.certLabel}>CERTIFICATE OF AI VISIBILITY</p>
               <div style={styles.gradeRow}>
                 <div>
-                  <h1 style={styles.certTitle}>{businessName}</h1>
+                  <h1 style={styles.certTitle}>{biz?.name || query}</h1>
                   <p style={styles.certMeta}>
-                    {category} · {city} ·{" "}
+                    {[biz?.category, biz?.city].filter(Boolean).join(" · ") ||
+                      "details resolved from your online footprint"}{" "}
+                    ·{" "}
                     {new Date().toLocaleDateString(undefined, {
                       year: "numeric",
                       month: "long",
@@ -220,8 +204,8 @@ export default function App() {
                 <div
                   style={{
                     ...styles.gradeStamp,
-                    color: GRADE_COLORS[report.grade] || "#b3231f",
-                    borderColor: GRADE_COLORS[report.grade] || "#b3231f",
+                    color: GRADE_COLORS[report.grade] || "#c1121f",
+                    borderColor: GRADE_COLORS[report.grade] || "#c1121f",
                   }}
                 >
                   <span style={styles.gradeLetter}>{report.grade}</span>
@@ -267,7 +251,7 @@ export default function App() {
       {phase === "limit" && (
         <div style={styles.certificate}>
           <div style={{ ...styles.certInner, textAlign: "center" }}>
-            <Lock size={32} color="#b07d10" />
+            <Lock size={32} color="#c1121f" />
             <h2 style={{ ...styles.certTitle, marginTop: 12 }}>
               You've used your free inspection
             </h2>
@@ -289,9 +273,16 @@ export default function App() {
 
 function UpgradeCard({ onUpgrade, busy, inline }) {
   return (
-    <div style={{ ...styles.upgradeCard, ...(inline ? { margin: "24px auto 0", boxShadow: "none", border: "2px dashed #b07d10" } : {}) }}>
+    <div
+      style={{
+        ...styles.upgradeCard,
+        ...(inline
+          ? { margin: "24px auto 0", boxShadow: "none", border: "2px dashed #c1121f" }
+          : {}),
+      }}
+    >
       <div style={styles.upgradeHeader}>
-        <Sparkles size={20} color="#b07d10" />
+        <Sparkles size={20} color="#c1121f" />
         <span style={styles.upgradeTitle}>Weekly Tracking — $19/month</span>
       </div>
       <ul style={styles.upgradeList}>
@@ -325,20 +316,20 @@ const styles = {
   },
   tagline: { marginTop: 6, color: "#6b675c", fontSize: 15 },
   certificate: {
-    background: "#faf7ef",
-    border: "3px solid #2b2a26",
-    boxShadow: "6px 6px 0 rgba(43,42,38,0.25)",
+    background: "#fdf6f0",
+    border: "3px solid #7a1013",
+    boxShadow: "6px 6px 0 rgba(122,16,19,0.25)",
     padding: 8,
   },
   certInner: {
-    border: "1px solid #b9b2a0",
+    border: "1px solid #d9a8a4",
     padding: "28px 30px",
   },
   certLabel: {
     fontFamily: "'Special Elite', monospace",
     fontSize: 12,
     letterSpacing: "3px",
-    color: "#8a8371",
+    color: "#b3625d",
     textAlign: "center",
     marginBottom: 14,
   },
@@ -347,59 +338,70 @@ const styles = {
     fontWeight: 900,
     letterSpacing: "-0.5px",
     lineHeight: 1.2,
+    color: "#3b1210",
   },
-  certSub: { marginTop: 10, color: "#55524a", fontSize: 15, lineHeight: 1.55 },
+  certSub: { marginTop: 10, color: "#6d4a45", fontSize: 15, lineHeight: 1.55 },
   certMeta: {
     fontFamily: "'Special Elite', monospace",
     fontSize: 13,
-    color: "#8a8371",
+    color: "#b3625d",
     marginTop: 6,
   },
-  headline: { marginTop: 14, fontSize: 16, lineHeight: 1.5, fontWeight: 600 },
-  form: { marginTop: 22, display: "flex", flexDirection: "column", gap: 14 },
-  label: {
+  headline: { marginTop: 14, fontSize: 16, lineHeight: 1.5, fontWeight: 600, color: "#3b1210" },
+  form: {
+    marginTop: 24,
     display: "flex",
     flexDirection: "column",
-    gap: 6,
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: "0.5px",
-    textTransform: "uppercase",
-    color: "#55524a",
+    gap: 18,
+    alignItems: "center",
   },
-  input: {
+  bigInput: {
+    width: "100%",
     fontFamily: "'Special Elite', monospace",
-    fontSize: 16,
-    padding: "10px 12px",
-    background: "#fffdf7",
-    border: "2px solid #2b2a26",
+    fontSize: 18,
+    padding: "14px 16px",
+    background: "#fffdfa",
+    border: "2px solid #7a1013",
     outline: "none",
+    textAlign: "center",
   },
-  primaryBtn: {
-    marginTop: 6,
-    padding: "14px 18px",
-    background: "#2b2a26",
-    color: "#faf7ef",
-    fontSize: 16,
-    fontWeight: 700,
-    border: "none",
+  bigRedButton: {
+    width: 170,
+    height: 170,
+    borderRadius: "50%",
+    background: "radial-gradient(circle at 35% 30%, #e6353c, #c1121f 55%, #8f0d16)",
+    border: "6px solid #7a1013",
+    boxShadow:
+      "0 10px 0 #5c0a0e, 0 14px 24px rgba(122,16,19,0.4), inset 0 2px 6px rgba(255,255,255,0.35)",
+    color: "#fff",
     cursor: "pointer",
-    letterSpacing: "0.5px",
+    transition: "transform 0.08s ease, box-shadow 0.08s ease",
   },
-  finePrint: { fontSize: 12.5, color: "#8a8371", textAlign: "center", marginTop: 4 },
+  bigRedButtonInner: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 6,
+    fontWeight: 900,
+    fontSize: 22,
+    letterSpacing: "2px",
+    textShadow: "0 1px 2px rgba(0,0,0,0.35)",
+  },
+  finePrint: { fontSize: 12.5, color: "#b3625d", textAlign: "center", marginTop: 4, lineHeight: 1.6 },
   error: {
     background: "#fbe9e7",
-    border: "1px solid #b3231f",
-    color: "#b3231f",
+    border: "1px solid #c1121f",
+    color: "#c1121f",
     padding: "10px 12px",
     fontSize: 14,
+    width: "100%",
   },
-  spinner: { animation: "spin 1.6s linear infinite", color: "#8a8371" },
+  spinner: { animation: "spin 1.6s linear infinite", color: "#c1121f" },
   scanStep: {
     fontFamily: "'Special Elite', monospace",
     marginTop: 14,
     fontSize: 15,
-    color: "#55524a",
+    color: "#6d4a45",
     minHeight: 24,
   },
   gradeRow: {
@@ -425,27 +427,27 @@ const styles = {
   gradeLetter: { fontSize: 48, fontWeight: 700, lineHeight: 1 },
   gradeScore: { fontSize: 13, marginTop: 2 },
   divider: {
-    borderTop: "2px dashed #b9b2a0",
+    borderTop: "2px dashed #d9a8a4",
     margin: "22px 0 18px",
   },
   sectionLabel: {
     fontFamily: "'Special Elite', monospace",
     fontSize: 12,
     letterSpacing: "2.5px",
-    color: "#8a8371",
+    color: "#b3625d",
     marginBottom: 12,
   },
   checkRow: { display: "flex", gap: 12, padding: "9px 0" },
-  checkName: { fontWeight: 700, fontSize: 15 },
-  checkDetail: { fontSize: 14, color: "#55524a", marginTop: 2, lineHeight: 1.5 },
+  checkName: { fontWeight: 700, fontSize: 15, color: "#3b1210" },
+  checkDetail: { fontSize: 14, color: "#6d4a45", marginTop: 2, lineHeight: 1.5 },
   fixRow: { display: "flex", gap: 12, padding: "9px 0" },
   fixNum: {
     flexShrink: 0,
     width: 24,
     height: 24,
     borderRadius: "50%",
-    background: "#2b2a26",
-    color: "#faf7ef",
+    background: "#c1121f",
+    color: "#fff",
     fontSize: 13,
     fontWeight: 700,
     display: "flex",
@@ -455,24 +457,24 @@ const styles = {
   },
   upgradeCard: {
     marginTop: 24,
-    background: "#fffdf7",
-    border: "2px solid #b07d10",
-    boxShadow: "4px 4px 0 rgba(176,125,16,0.2)",
+    background: "#fffdfa",
+    border: "2px solid #c1121f",
+    boxShadow: "4px 4px 0 rgba(193,18,31,0.18)",
     padding: "20px 24px",
   },
   upgradeHeader: { display: "flex", alignItems: "center", gap: 8 },
-  upgradeTitle: { fontWeight: 900, fontSize: 17 },
+  upgradeTitle: { fontWeight: 900, fontSize: 17, color: "#3b1210" },
   upgradeList: {
     margin: "12px 0 16px 20px",
     fontSize: 14.5,
-    color: "#55524a",
+    color: "#6d4a45",
     lineHeight: 1.7,
   },
   upgradeBtn: {
     width: "100%",
     padding: "12px 16px",
-    background: "#b07d10",
-    color: "#fffdf7",
+    background: "#c1121f",
+    color: "#fffdfa",
     fontWeight: 700,
     fontSize: 15,
     border: "none",
@@ -482,11 +484,17 @@ const styles = {
     textAlign: "center",
     marginTop: 36,
     fontSize: 13,
-    color: "#8a8371",
+    color: "#b3625d",
   },
 };
 
-// keyframes for the spinner (inline styles can't declare @keyframes)
+// keyframes + press feedback for the big red button (inline styles can't do these)
 const styleTag = document.createElement("style");
-styleTag.textContent = "@keyframes spin { to { transform: rotate(360deg); } }";
+styleTag.textContent = `
+@keyframes spin { to { transform: rotate(360deg); } }
+button[type="submit"]:active {
+  transform: translateY(6px);
+  box-shadow: 0 4px 0 #5c0a0e, 0 6px 12px rgba(122,16,19,0.4), inset 0 2px 6px rgba(255,255,255,0.35) !important;
+}
+`;
 document.head.appendChild(styleTag);

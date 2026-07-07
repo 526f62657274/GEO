@@ -6,20 +6,23 @@ import { getStore } from "@netlify/blobs";
 
 const FREE_SCAN_LIMIT = 1;
 
-function buildPrompt({ businessName, category, city }) {
-  return `You are an AI-visibility auditor for local businesses. Research the real online footprint of the following business using web search, then grade how likely an AI assistant (like ChatGPT or Claude) would be to find and recommend it when someone asks for "the best ${category} in ${city}".
+function buildPrompt({ query }) {
+  return `You are an AI-visibility auditor for local businesses. The user typed only this to identify their business:
 
-Business: "${businessName}" — Category: ${category} — City: ${city}
+"${query}"
 
-Search for evidence of:
-- A Google Business Profile / Google Maps listing
+STEP 1 — Identify the business. Search the web (especially Google Business Profile / Google Maps results) to find this business. From what you find, work out its proper name, its category (what it does), and its city/location. If several businesses match and the user gave no location, pick the most prominent match.
+
+STEP 2 — Audit its AI visibility. Grade how likely an AI assistant (like ChatGPT or Claude) would be to find and recommend it when someone asks for "the best <category> in <city>". Search for evidence of:
+- Its Google Business Profile / Google Maps listing (claimed? complete? photos? hours?)
 - Review volume and average rating (Google, Yelp, or similar)
 - A working website that names the business, category, and city
-- Mentions in local directories or "best ${category} in ${city}" style articles
+- Mentions in local directories or "best <category> in <city>" style articles
 - Any social media presence
 
 Then respond with ONLY a JSON object (no markdown fences, no commentary) in exactly this shape:
 {
+  "business": { "name": "resolved business name", "category": "what it does, e.g. bakery", "city": "city and region, e.g. Portland, OR" },
   "grade": "A" | "B" | "C" | "D" | "F",
   "score": 0-100,
   "headline": "one-sentence plain-English verdict",
@@ -31,7 +34,7 @@ Then respond with ONLY a JSON object (no markdown fences, no commentary) in exac
   ]
 }
 
-Include 5 to 7 checks and 3 to 5 fixes, ordered by impact. Base everything on what you actually found in your searches. If you cannot find the business at all, say so plainly in the headline and grade accordingly.`;
+Include 5 to 7 checks and 3 to 5 fixes, ordered by impact. Base everything on what you actually found in your searches. If you cannot find the business at all, use the user's text as the name, leave category/city as empty strings, say so plainly in the headline, and grade accordingly.`;
 }
 
 function extractJson(text) {
@@ -55,10 +58,10 @@ export default async (req) => {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { businessName, category, city, sessionId } = body || {};
-  if (!businessName || !category || !city || !sessionId) {
+  const { query, sessionId } = body || {};
+  if (!query || !sessionId) {
     return Response.json(
-      { error: "businessName, category, city and sessionId are required" },
+      { error: "query and sessionId are required" },
       { status: 400 }
     );
   }
@@ -78,11 +81,13 @@ export default async (req) => {
   }
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const prompt = buildPrompt({ businessName, category, city });
+  const prompt = buildPrompt({ query });
   const requestParams = {
     model: "claude-sonnet-4-6",
-    max_tokens: 1000,
-    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 6 }],
+    // Slightly more headroom than v1: the report now also carries the
+    // resolved business details (name/category/city).
+    max_tokens: 1500,
+    tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 8 }],
   };
 
   try {

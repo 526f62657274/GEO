@@ -5,10 +5,10 @@
 }
 
 body {
-  background: #e8e4da;
-  background-image: radial-gradient(#d8d3c5 1px, transparent 1px);
+  background: #f0e2dc;
+  background-image: radial-gradient(#e2ccc4 1px, transparent 1px);
   background-size: 24px 24px;
   font-family: "Libre Franklin", -apple-system, sans-serif;
-  color: #2b2a26;
+  color: #3b1210;
   min-height: 100vh;
 }
