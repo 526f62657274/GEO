@@ -426,7 +426,7 @@ function setLang(l) {
   store.set("hotbox-lang", lang);
 }
 $$(".langs button").forEach(b => b.addEventListener("click", () => setLang(b.dataset.lang)));
-setLang(store.get("hotbox-lang") || (navigator.language || "en").slice(0, 2).toLowerCase());
+setLang(store.get("hotbox-lang") || "en"); // English unless the visitor picks FR/DE
 
 // Header turns solid once you leave the top of the hero.
 const head = $("header");
