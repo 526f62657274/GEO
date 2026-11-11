@@ -457,8 +457,11 @@ form.addEventListener("submit", async e => {
   if (via === "mail") return void (location.href = `mailto:${CONTACT.email}?subject=${encodeURIComponent(t("m.subject"))}&body=${enc}`);
   // Instagram can't be pre-filled, so copy the message and open the DM thread.
   try { await navigator.clipboard.writeText(text) } catch {}
-  note.className = "note ok"; note.textContent = t("form.copied");
-  open(`https://ig.me/m/${CONTACT.instagram}`, "_blank", "noopener");
+  const url = `https://ig.me/m/${CONTACT.instagram}`;
+  note.className = "note ok"; note.textContent = t("form.copied") + " ";
+  const a = Object.assign(document.createElement("a"), { href: url, target: "_blank", rel: "noopener", textContent: "Instagram →" });
+  note.append(a); // popup blockers may swallow open(), so the link is always there
+  open(url, "_blank", "noopener");
 });
 </script>
 </body>
