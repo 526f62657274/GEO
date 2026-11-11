@@ -1,0 +1,33 @@
+# Publishes the static TheHotBox site (./hotbox) to GitHub Pages.
+name: Deploy TheHotBox site
+
+on:
+  push:
+    paths:
+      - "hotbox/**"
+      - ".github/workflows/hotbox-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: hotbox-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: hotbox
+      - id: deployment
+        uses: actions/deploy-pages@v4
